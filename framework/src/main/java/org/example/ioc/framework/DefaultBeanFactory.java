@@ -9,16 +9,20 @@ import java.lang.reflect.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class DefaultBeanFactory implements BeanFactory {
 
     private final BeanDefinitionRegistry beanDefinitionRegistry;
-    private final Map<String, Object> beans = new HashMap<>();
+
+    // We are going to create beans in realtime
+    private final Map<String, Object> beans = new ConcurrentHashMap<>();
 
     @Override
     public Object getBean(String id) {
+
         if (beans.containsKey(id)) {
             return beans.get(id);
         }
@@ -54,14 +58,21 @@ public class DefaultBeanFactory implements BeanFactory {
         return beans.containsKey(id);
     }
 
-    private Object createBean(String id) {
+    synchronized private Object createBean(String id) {
+        // check again.
+        if (beans.containsKey(id)) {
+            return beans.get(id);
+        }
 
         BeanDefinition beanDefinition = beanDefinitionRegistry.getBeanDefinition(id);
         Object bean = beanDefinition.getFactoryMethod() != null
                 ? createByFactoryMerthod(beanDefinition)
                 : createByConstructor(beanDefinition);
 
+        // We don't should to have it.
+        //beans.putIfAbsent(beanDefinition.getId(), bean);
         beans.put(beanDefinition.getId(), bean);
+
         return bean;
     }
 
